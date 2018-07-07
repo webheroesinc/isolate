@@ -1,6 +1,6 @@
 {
   "name": "@whi/isolate",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Run a string as code with variables extracted from an object's key/values",
   "main": "isolate.js",
   "scripts": {

@@ -6,9 +6,11 @@ function wrap_methods( methods, ctx ) {
 	    wrap_methods( v, ctx );
 	}
 	else if (typeof v === 'function') {
-	    methods[k]	= function() {
-		return v.apply(ctx, arguments);
-	    }
+	    (function(k, fn, ctx) {
+		methods[k]	= function() {
+		    return fn.apply(ctx, arguments);
+		}
+	    })(k, v, ctx);
 	}
     }
 }
