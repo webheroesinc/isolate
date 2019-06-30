@@ -1,6 +1,6 @@
 {
   "name": "@whi/isolate",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Evaluate a string in a strictly isolated context",
   "main": "isolate.js",
   "scripts": {
