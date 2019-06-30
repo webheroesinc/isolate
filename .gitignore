@@ -1,5 +1,3 @@
-*.log
-*.pyc
 *~
-\#*\#
-/docker/webheroes/chaosrouter/chaosrouter
+/node_modules
+package-lock.json

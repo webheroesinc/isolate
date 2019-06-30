@@ -1,126 +1,108 @@
-var bunyan		= require('bunyan');
-var log			= bunyan.createLogger({name: 'tests', level: "trace"});
 
-var expect		= require('chai').expect;
-var isolate		= require('./isolate.js');
+const Isolate				= require('./isolate.js');
+const expect				= require('chai').expect;
 
-var e			= (e) => log.error(e);
-var n			= () => null;
+describe("Isolate", function() {
+    const methods			= {
+	"length":		function ( str ) { return str.length; },
+	"lengthThrow":		function ( str ) { throw Error("Bad"); },
+	"asyncLength":		async function ( str ) { return str.length; },	
+	"asyncLengthThrow":	async function ( str ) { throw Error("Bad"); },	
+    };
+    const data				= {
+	name: "Mark Twain",
+    };
+    const isolater			= new Isolate( methods );
+    const ctx				= isolater.context( data );
 
-var util		= require('util');
 
-String.prototype.format	= function() {
-    const args		= Array.prototype.slice.call(arguments);
-    // Convert 'this' String object to a primitive String.  util.format only works with a primitive
-    // string.
-    args.unshift( String(this) );
-    return util.format.apply(null, args);
-}
+    it("should test quickrun command", function () {
+	expect( Isolate.command("this.name", data) ).to.equal( "Mark Twain" );
+    });
+    it("should test quickrun command with method", function () {
+	Isolate.method( "length", methods['length'] );
+	
+	expect( Isolate.command("length( this.name )", data) ).to.equal( 10 );
+    });
 
-isolate.error(e);
 
-describe('/isolate', function() {
+    it("should test method", function () {
+	expect( ctx("length( this.name )") ).to.equal( 10 );
+    });
+    it("should test method throw", function () {
+	try {
+	    ctx("lengthThrow( this.name )");
+	} catch(e) {
+	    expect( e.message ).to.equal("Bad");
+	    return;
+	}
+	throw Error("Should have failed before this point");
+    });
+
+
+    it("should test async method", async function () {
+	expect( await ctx.async("asyncLength( this.name )") ).to.equal( 10 );
+    });
+    it("should test async method throw", async function () {
+	try {
+	    await ctx.async("asyncLengthThrow( this.name )");
+	} catch(e) {
+	    expect( e.message ).to.equal("Bad");
+	    return;
+	}
+	throw Error("Should have failed before this point");
+    });
+    it("should test async method throw using .then()", function () {
+	return ctx.async("lengthThrow( this.name )").then(_ => {
+	    throw Error("Should have failed before this point");
+	}, e => {
+	    expect( e.message ).to.equal("Bad");
+	});
+    });
+    
+
+    it("should test non-async method expecting async", async function () {
+	expect( await ctx.async("length( this.name )") ).to.equal(10);
+    });
+    it("should test non-async method throw expecting async", async function () {
+	try {
+	    await ctx.async("lengthThrow( this.name )");
+	} catch(e) {
+	    expect( e.message ).to.equal("Bad");
+	    return;
+	}
+	throw Error("Should have failed before this point");
+    });
+    it("should test non-async method throw expecting async using .then()", function () {
+	return ctx.async("lengthThrow( this.name )").then(_ => {
+	    throw Error("Should have failed before this point");
+	}, e => {
+	    expect( e.message ).to.equal("Bad");
+	});
+    });
+    
+
+    it("should test async method expecting non-async", async function () {
+	expect( ctx("asyncLength( this.name )") ).is.a('Promise');
+    });
+    it("should test async method throw expecting non-async", async function () {
+	expect( ctx("asyncLengthThrow( this.name )").catch(_ => null) ).is.a('Promise');
+    });
 
     
-    it("should run function and return value", function() {
-	const data	= isolate.extract("= echo()", {
-	    echo: function() {
-		return "Your mom!";
-	    }
+    it("should test methods are only in their own instance", function () {
+	const isolater2			= new Isolate({
+	    "count": function ( str, letter ) { return (str.split(letter).length - 1); },
 	});
+	const ctx2			= isolater2.context( data );
 
-	expect(data).to.equal("Your mom!");
-    });
-    
-    it("should run function with params and return mock status", function() {
-	const data	= isolate.extract("= Actors.add( params )", {
-	    Actors: {
-		add: function(params) {
-		    return {
-			status: "success",
-			actor: {
-			    name: "%s, %s".format( params.name.last, params.name.first ),
-			},
-		    };
-		}
-	    },
-	    params: {
-		name: {
-		    first: "Tom",
-		    last: "Hardy",
-		},
-		age: 40,
-	    },
-	});
-
-	expect(data.status).to.equal("success");
-	expect(data.actor.name).to.equal("Hardy, Tom");
-    });
-
-    it("should run function with params and handle async response", function() {
-	function resolve(data) {
-	    expect(data.status).to.equal("success");
-	    expect(data.actor.name).to.equal("Hardy, Tom");
+	try {
+	    expect( ctx2("count( this.name, 'a' )") ).to.equal(2);
+	    ctx2("length( this.name )");
+	} catch (e) {
+	    expect( e.message ).to.equal("length is not defined");
+	    return;
 	}
-	
-	const data	= isolate.extract("= Actors.add( params )", {
-	    Actors: {
-		add: function() {
-		    (function(params) {
-			this.resolve({
-			    status: "success",
-			    actor: {
-				name: "%s, %s".format( params.name.last, params.name.first ),
-			    },
-			});
-		    }).apply({
-			resolve: resolve
-		    } , arguments);
-		}
-	    },
-	    params: {
-		name: {
-		    first: "Tom",
-		    last: "Hardy",
-		},
-		age: 40,
-	    },
-	});
+	throw Error("Should have failed before this point");
     });
-
-    it("should run functions wrapped in scope", function() {
-	function resolve(data) {
-	    expect(data.status).to.equal("success");
-	    expect(data.actor.name).to.equal("Hardy, Tom");
-	}
-	
-	var ctx = {
-	    pass: function() {
-	    },
-	    resolve: resolve,
-	};
-
-	var methods = {
-	    Actors: {
-		add: function(params) {
-		    this.resolve({
-			status: "success",
-			actor: {
-			    name: "%s, %s".format( params.name.last, params.name.first ),
-			},
-		    });
-		}
-	    },
-	    params: {
-		name: {
-		    first: "Tom",
-		    last: "Hardy",
-		},
-		age: 40,
-	    },
-	};
-	
-	const data	= isolate.extract("= Actors.add( params )", methods, ctx);
-    });
-
 });

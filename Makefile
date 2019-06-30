@@ -1,7 +1,5 @@
 
-
 tests:
-	mocha tests.js | bunyan
-
+	npm run test
 publish:
 	npm publish --access public
