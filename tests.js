@@ -3,7 +3,7 @@ const Isolate				= require('./isolate.js');
 const expect				= require('chai').expect;
 
 describe("Isolate", function() {
-    const methods			= {
+    const constants			= {
 	"length":		function ( str ) { return str.length; },
 	"lengthThrow":		function ( str ) { throw Error("Bad"); },
 	"asyncLength":		async function ( str ) { return str.length; },	
@@ -12,15 +12,15 @@ describe("Isolate", function() {
     const data				= {
 	name: "Mark Twain",
     };
-    const isolater			= new Isolate( methods );
+    const isolater			= new Isolate( constants );
     const ctx				= isolater.context( data );
 
 
     it("should test quickrun command", function () {
 	expect( Isolate.command("this.name", data) ).to.equal( "Mark Twain" );
     });
-    it("should test quickrun command with method", function () {
-	Isolate.method( "length", methods['length'] );
+    it("should test quickrun command with constant", function () {
+	Isolate.constant( "length", constants['length'] );
 	
 	expect( Isolate.command("length( this.name )", data) ).to.equal( 10 );
     });
